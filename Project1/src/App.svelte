@@ -172,7 +172,7 @@ $: summary = (() => {
         return { x, y };
     });
 
-    // Steps chart data (trim trailing zeros)
+    // Steps chart data 
     const stepSource = [...recentData];
     while (stepSource.length > 1 && (stepSource[stepSource.length - 1].steps || 0) === 0 && stepSource[stepSource.length - 1].date !== selectedDate) stepSource.pop();
     const maxSteps = Math.max(...stepSource.map(e => e.steps || 0), 5000);
@@ -184,7 +184,7 @@ $: summary = (() => {
     });
     const stepAxisLabels = [`${Math.round(maxSteps / 1000)}k`, `${Math.round(maxSteps / 2000)}k`];
 
-    // Sleep chart data (trim trailing zeros)
+    // Sleep chart data 
     const maxSleep = 10 * 60;
     const sleepSource = [...recentData];
     const totalMinutesOf = entry => (entry.sleep?.hours || 0) * 60 + (entry.sleep?.minutes || 0);
@@ -209,6 +209,7 @@ $: summary = (() => {
     return { moodLinePoints, stepChartData, stepAxisLabels, sleepChartData, sleepAxisLabels, chartLabels: recentData.map(getLabel), stepLabels, sleepLabels };
 })();
 </script>
+
 <!-- Main Dashboard Layout -->
 <main>
   <div class="dashboard-grid">
@@ -344,7 +345,7 @@ $: summary = (() => {
             .dashboard-grid {
                 display: grid;
                 grid-template-areas: "header header header" "summary editor calendar";
-                grid-template-columns: 1.4fr 1.1fr 320px;
+                grid-template-columns: 1.3fr 1.7fr 320px;
                 grid-template-rows: auto minmax(0, 1fr);
                 gap: 1.5rem; width: 100%; max-width: 1600px; height: calc(100vh - 2rem);
             }
