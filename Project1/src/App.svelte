@@ -1,234 +1,205 @@
 <script>
-   
-    // Our name
-    let user = { name: "Adi" };
-    
-    // Custom Habits
-    let habitTemplates = [
-        { id: 1, name: 'Quiet Morning' },
-        { id: 2, name: 'Read for 15 mins' }
-    ];
+// Utility to get local ISO date string (YYYY-MM-DD)  
+const pad = (n) => String(n).padStart(2, '0');
+const localISO = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
-    // Default Entry for any day.
-    const createDefaultEntry = (dateString) => ({
-        date: dateString,
-        steps: 0,
-        mood: 'Neutral',
-        thought: '',
-        sleep: { hours: 0, minutes: 0 },
-        workout: { completed: false, type: 'Push' },
-        medication: [],
-        customHabits: habitTemplates.map(t => ({...t, completed: false }))
+// Basic app state
+let user = { name: 'Adi' };
+
+// Habit templates
+let habitTemplates = [
+    { id: 1, name: 'Quiet Morning' },
+    { id: 2, name: 'Read for 15 mins' }
+];
+
+// Default entry factory
+const createDefaultEntry = (dateString) => ({
+    date: dateString,
+    steps: 0,
+    mood: 'Neutral',
+    thought: '',
+    sleep: { hours: 0, minutes: 0 },
+    workout: { completed: false, type: 'Push' },
+    medication: [],
+    customHabits: habitTemplates.map(t => ({ ...t, completed: false }))
+});
+
+// Sample entries for demonstration
+let entries = [
+    { date: '2025-09-12', steps: 4310, sleep: { hours: 8, minutes: 0 }, mood: 'Unpleasant', workout: { completed: false, type: 'Legs' }, customHabits: [{ id: 1, name: 'Brushed Teeth', completed: true }, { id: 2, name: 'Read for 15 mins', completed: false }] },
+    { date: '2025-09-15', steps: 12034, sleep: { hours: 7, minutes: 45 }, mood: 'Neutral', workout: { completed: true, type: 'Push' }, customHabits: [{ id: 1, name: 'Brushed Teeth', completed: true }, { id: 2, name: 'Read for 15 mins', completed: true }] },
+    { date: '2025-09-18', steps: 8204, sleep: { hours: 7, minutes: 30 }, mood: 'Pleasant', workout: { completed: true, type: 'Push' }, customHabits: [{ id: 1, name: 'Brushed Teeth', completed: true }, { id: 2, name: 'Read for 15 mins', completed: true }] },
+    { date: '2025-09-19', steps: 10593, sleep: { hours: 6, minutes: 15 }, mood: 'Slightly Pleasant', workout: { completed: false, type: 'Pull' }, customHabits: [{ id: 1, name: 'Brushed Teeth', completed: true }, { id: 2, name: 'Read for 15 mins', completed: false }] },
+    { date: '2025-09-20', steps: 9500, sleep: { hours: 8, minutes: 15 }, mood: 'Pleasant', workout: { completed: true, type: 'Push' }, customHabits: [{ id: 1, name: 'Brushed Teeth', completed: true }, { id: 2, name: 'Read for 15 mins', completed: true }] },
+    { date: '2025-09-21', steps: 11000, sleep: { hours: 7, minutes: 0 }, mood: 'Slightly Pleasant', workout: { completed: true, type: 'Legs' }, customHabits: [{ id: 1, name: 'Brushed Teeth', completed: true }, { id: 2, name: 'Read for 15 mins', completed: true }] },
+    { date: '2025-09-22', steps: 3000, sleep: { hours: 6, minutes: 30 }, mood: 'Neutral', workout: { completed: false, type: 'Legs' }, customHabits: [{ id: 1, name: 'Brushed Teeth', completed: true }, { id: 2, name: 'Read for 15 mins', completed: false }] }
+];
+
+// Ensure today exists
+let todayString = localISO();
+if (!entries.find(e => e.date === todayString)) entries.push(createDefaultEntry(todayString));
+
+// UI state
+let selectedDate = todayString;
+let dateForCalendar = new Date(todayString + 'T00:00:00');
+let entryBeingEdited = {};
+let newHabitName = '';
+let saved = false;
+let isLoggingWorkout = false;
+
+// reactive month/year for calendar
+$: displayMonth = dateForCalendar.getMonth();
+$: displayYear = dateForCalendar.getFullYear();
+
+// Keep entryBeingEdited in sync with selectedDate
+$: {
+    const original = entries.find(e => e.date === selectedDate);
+    const base = original ? JSON.parse(JSON.stringify(original)) : createDefaultEntry(selectedDate);
+    if (!base.customHabits) base.customHabits = [];
+    habitTemplates.forEach(t => {
+        if (!base.customHabits.find(h => h.id === t.id)) base.customHabits.push({ ...t, completed: false });
     });
+    base.customHabits = base.customHabits.filter(h => habitTemplates.some(t => t.id === h.id));
+    entryBeingEdited = base;
+    isLoggingWorkout = false;
+}
 
-    // Sample Data
-    
-    let entries = [
-        { date: '2025-09-12', steps: 4310, sleep: { hours: 8, minutes: 0 }, mood: 'Unpleasant', workout: { completed: false, type: 'Legs'}, customHabits: [{id: 1, name: 'Brushed Teeth', completed: true}, {id: 2, name: 'Read for 15 mins', completed: false}] },
-        { date: '2025-09-15', steps: 12034, sleep: { hours: 7, minutes: 45 }, mood: 'Neutral', workout: { completed: true, type: 'Push'}, customHabits: [{id: 1, name: 'Brushed Teeth', completed: true}, {id: 2, name: 'Read for 15 mins', completed: true}] },
-        { date: '2025-09-18', steps: 8204, sleep: { hours: 7, minutes: 30 }, mood: 'Pleasant', workout: { completed: true, type: 'Push'}, customHabits: [{id: 1, name: 'Brushed Teeth', completed: true}, {id: 2, name: 'Read for 15 mins', completed: true}] },
-        { date: '2025-09-19', steps: 10593, sleep: { hours: 6, minutes: 15 }, mood: 'Slightly Pleasant', workout: { completed: false, type: 'Pull'}, customHabits: [{id: 1, name: 'Brushed Teeth', completed: true}, {id: 2, name: 'Read for 15 mins', completed: false}] },
-        { date: '2025-09-20', steps: 9500, sleep: { hours: 8, minutes: 15 }, mood: 'Pleasant', workout: { completed: true, type: 'Push'}, customHabits: [{id: 1, name: 'Brushed Teeth', completed: true}, {id: 2, name: 'Read for 15 mins', completed: true}] },
-        { date: '2025-09-21', steps: 11000, sleep: { hours: 7, minutes: 0 }, mood: 'Slightly Pleasant', workout: { completed: true, type: 'Legs'}, customHabits: [{id: 1, name: 'Brushed Teeth', completed: true}, {id: 2, name: 'Read for 15 mins', completed: true}] },
-        { date: '2025-09-22', steps: 3000, sleep: { hours: 6, minutes: 30 }, mood: 'Neutral', workout: { completed: false, type: 'Legs'}, customHabits: [{id: 1, name: 'Brushed Teeth', completed: true}, {id: 2, name: 'Read for 15 mins', completed: false}] },
-   ];
+// Utility / actions
+function formatDate(dateInput, options = { month: 'short', day: 'numeric', weekday: 'long' }) {
+    const date = dateInput instanceof Date ? dateInput : new Date(dateInput + 'T00:00:00');
+    return date.toLocaleDateString('en-US', options);
+}
 
-    const pad = (n) => String(n).padStart(2, '0');
-    const localISO = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-    let todayString = localISO();
-    if (!entries.find(e => e.date === todayString)) {
-        entries.push(createDefaultEntry(todayString));
+function changeMonth(amount) {
+    dateForCalendar.setMonth(dateForCalendar.getMonth() + amount);
+    dateForCalendar = new Date(dateForCalendar);
+}
+
+function changeDay(amount) {
+    const d = new Date(selectedDate + 'T00:00:00');
+    d.setDate(d.getDate() + amount);
+    const newIso = localISO(d);
+    selectedDate = newIso;
+    dateForCalendar = new Date(newIso + 'T00:00:00');
+}
+
+function saveChanges() {
+    const index = entries.findIndex(e => e.date === entryBeingEdited.date);
+    const entryCopy = JSON.parse(JSON.stringify(entryBeingEdited));
+    if (index !== -1) entries[index] = entryCopy;
+    else entries.push(entryCopy);
+    entries = entries.sort((a, b) => new Date(a.date) - new Date(b.date));
+    saved = true;
+    setTimeout(() => (saved = false), 2000);
+}
+
+function removeWorkout() {
+    entryBeingEdited.workout = createDefaultEntry('').workout;
+    isLoggingWorkout = false;
+}
+
+function saveWorkout() {
+    isLoggingWorkout = false;
+    entryBeingEdited.workout.completed = true;
+}
+
+function cancelWorkout() {
+    isLoggingWorkout = false;
+}
+
+function addNewHabitTemplate() {
+    if (newHabitName.trim() === '') return;
+    const newHabit = { id: Date.now(), name: newHabitName.trim() };
+    habitTemplates = [...habitTemplates, newHabit];
+    entries.forEach(entry => {
+        if (!entry.customHabits) entry.customHabits = [];
+        if (!entry.customHabits.find(h => h.id === newHabit.id)) entry.customHabits.push({ ...newHabit, completed: false });
+    });
+    entries = entries;
+    newHabitName = '';
+}
+
+function deleteHabitTemplate(idToDelete) {
+    habitTemplates = habitTemplates.filter(t => t.id !== idToDelete);
+    entries.forEach(entry => {
+        if (entry.customHabits) entry.customHabits = entry.customHabits.filter(h => h.id !== idToDelete);
+    });
+    entries = entries;
+}
+
+// Build calendar grid (6 weeks)
+$: calendarDays = (() => {
+    const days = [];
+    const firstDay = new Date(displayYear, displayMonth, 1);
+    const startDate = new Date(firstDay);
+    startDate.setDate(startDate.getDate() - firstDay.getDay());
+    for (let i = 0; i < 42; i++) {
+        const date = new Date(startDate);
+        date.setDate(startDate.getDate() + i);
+        const dateString = date.toISOString().split('T')[0];
+        days.push({ date, dateString, isCurrentMonth: date.getMonth() === displayMonth, entry: entries.find(e => e.date === dateString) });
     }
+    return days;
+})();
 
-    let selectedDate = todayString;
-    let newMedicationName = '';
-    let newHabitName = '';
-    let saved = false;
-    let isLoggingWorkout = false;
+// Summary data for the charts
+$: summary = (() => {
+    const sortedEntries = [...entries].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const todayISO = localISO();
+    const isFutureSelected = new Date(selectedDate + 'T00:00:00') > new Date(todayISO + 'T00:00:00');
 
-    let dateForCalendar = new Date(todayString + 'T00:00:00');
-    $: displayMonth = dateForCalendar.getMonth();
-    $: displayYear = dateForCalendar.getFullYear();
+    const dataForGraphs = isFutureSelected
+        ? sortedEntries
+        : [...sortedEntries.filter(e => e.date !== selectedDate), entryBeingEdited].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-    let entryBeingEdited = {};
+    const selectedIndex = dataForGraphs.findIndex(e => e.date === selectedDate);
+    const startIndex = Math.max(0, selectedIndex - 6);
+    const recentData = selectedIndex > -1 ? dataForGraphs.slice(startIndex, selectedIndex + 1) : dataForGraphs.slice(-7);
 
-    // Whenever selectedDate or entries change, update entryBeingEdited
+    const getLabel = entry => new Date(entry.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' });
 
-    $: {
-        const originalEntry = entries.find(e => e.date === selectedDate);
-        let newEntry = JSON.parse(JSON.stringify(originalEntry || createDefaultEntry(selectedDate)));
-        
-        if (!newEntry.customHabits) newEntry.customHabits = [];
-        habitTemplates.forEach(template => {
-            if (!newEntry.customHabits.find(h => h.id === template.id)) {
-                newEntry.customHabits.push({...template, completed: false});
-            }
-        });
-        newEntry.customHabits = newEntry.customHabits.filter(h => habitTemplates.some(t => t.id === h.id));
-
-        entryBeingEdited = newEntry;
-        isLoggingWorkout = false;
-    }
-
-    // Functions for handling user actions
-    function saveChanges() {
-        const index = entries.findIndex(e => e.date === entryBeingEdited.date);
-        const entryCopy = JSON.parse(JSON.stringify(entryBeingEdited));
-        if (index !== -1) { entries[index] = entryCopy; } 
-        else { entries.push(entryCopy); }
-        entries = entries.sort((a, b) => new Date(a.date) - new Date(b.date));
-        saved = true;
-        setTimeout(() => saved = false, 2000);
-    }
-
-  
-    function removeWorkout() {
-        entryBeingEdited.workout = createDefaultEntry('').workout;
-        isLoggingWorkout = false;
-    }
-
-    function saveWorkout() {
-        isLoggingWorkout = false;
-        entryBeingEdited.workout.completed = true;
-    }
-
-    function cancelWorkout() {
-        isLoggingWorkout = false;
-    }
-
-    function addNewHabitTemplate() {
-        if (newHabitName.trim() === '') return;
-        const newHabit = { id: Date.now(), name: newHabitName.trim() };
-        habitTemplates = [...habitTemplates, newHabit];
-        entries.forEach(entry => {
-            if (!entry.customHabits) entry.customHabits = [];
-            if (!entry.customHabits.find(h => h.id === newHabit.id)) {
-                entry.customHabits.push({ ...newHabit, completed: false });
-            }
-        });
-        entries = entries;
-        newHabitName = '';
-    }
-
-    function deleteHabitTemplate(idToDelete) {
-        habitTemplates = habitTemplates.filter(t => t.id !== idToDelete);
-        entries.forEach(entry => {
-            if (entry.customHabits) {
-                entry.customHabits = entry.customHabits.filter(h => h.id !== idToDelete);
-            }
-        });
-        entries = entries;
-    }
-    
-    const formatDate = (dateInput, options = { month: 'short', day: 'numeric', weekday: 'long' }) => {
-        const date = dateInput instanceof Date ? dateInput : new Date(dateInput + 'T00:00:00');
-        return date.toLocaleDateString('en-US', options);
+    const moodMap = { 'very pleasant': 6, pleasant: 5, 'slightly pleasant': 4, neutral: 3, 'slightly unpleasant': 2, unpleasant: 1, 'very unpleasant': 0 };
+    const getMoodValue = moodStr => {
+        if (!moodStr || typeof moodStr !== 'string') return 3;
+        const key = moodStr.trim().toLowerCase();
+        return moodMap.hasOwnProperty(key) ? moodMap[key] : 3;
     };
 
-    function changeMonth(amount) {
-        dateForCalendar.setMonth(dateForCalendar.getMonth() + amount);
-        dateForCalendar = new Date(dateForCalendar);
-    }
+    const moodLinePoints = recentData.map((entry, index) => {
+        const moodValue = getMoodValue(entry.mood);
+        const x = recentData.length <= 1 ? 50 : (index / (recentData.length - 1)) * 100;
+        const y = 100 - (moodValue / 6) * 100;
+        return { x, y };
+    });
 
-    function changeDay(amount) {
-        const d = new Date(selectedDate + 'T00:00:00');
-        d.setDate(d.getDate() + amount);
-        const newIso = localISO(d);
-        selectedDate = newIso;
-        dateForCalendar = new Date(newIso + 'T00:00:00');
-    }
-    
-    $: calendarDays = (() => {
-        const days = [];
-        const firstDay = new Date(displayYear, displayMonth, 1);
-        const startDate = new Date(firstDay);
-        startDate.setDate(startDate.getDate() - firstDay.getDay());
-        for (let i = 0; i < 42; i++) {
-            const date = new Date(startDate);
-            date.setDate(startDate.getDate() + i);
-            const dateString = date.toISOString().split('T')[0];
-            days.push({
-                date: date, dateString: dateString, isCurrentMonth: date.getMonth() === displayMonth,
-                entry: entries.find(e => e.date === dateString)
-            });
-        }
-        return days;
-    })();
-
-    // Summary data for graphs
-    $: summary = (() => {
-    const sortedEntries = [...entries].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-        const todayISO = localISO();
-        const isFutureSelected = new Date(selectedDate + 'T00:00:00') > new Date(todayISO + 'T00:00:00');
-
-      
-        const dataForGraphs = (isFutureSelected)
-            ? sortedEntries
-            : [...sortedEntries.filter(e => e.date !== selectedDate), entryBeingEdited].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-        const selectedIndex = dataForGraphs.findIndex(e => e.date === selectedDate);
-        const startIndex = Math.max(0, selectedIndex - 6);
-        const recentData = selectedIndex > -1 ? dataForGraphs.slice(startIndex, selectedIndex + 1) : dataForGraphs.slice(-7);
-
-        const getLabel = (entry) => new Date(entry.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' });
-        
-        const moodMap = { 'very pleasant': 6, 'pleasant': 5, 'slightly pleasant': 4, 'neutral': 3, 'slightly unpleasant': 2, 'unpleasant': 1, 'very unpleasant': 0 };
-        const getMoodValue = (moodStr) => {
-            if (!moodStr || typeof moodStr !== 'string') return 3;
-            const key = moodStr.trim().toLowerCase();
-            return (moodMap.hasOwnProperty(key) ? moodMap[key] : 3);
-        };
-        const moodLinePoints = recentData.map((entry, index) => {
-            const moodValue = getMoodValue(entry.mood);
-            const x = recentData.length <= 1 ? 50 : (index / (recentData.length - 1)) * 100;
-            const y = 100 - (moodValue / 6) * 100;
-            return { x, y };
-        });
-
-        // Trim trailing entries with zero steps so empty bars at the end are removed
-        const stepSource = [...recentData];
+    // Steps chart data (trim trailing zeros)
+    const stepSource = [...recentData];
     while (stepSource.length > 1 && (stepSource[stepSource.length - 1].steps || 0) === 0 && stepSource[stepSource.length - 1].date !== selectedDate) stepSource.pop();
+    const maxSteps = Math.max(...stepSource.map(e => e.steps || 0), 5000);
+    const stepChartData = stepSource.map((entry, index) => {
+        const slotWidth = stepSource.length > 0 ? 100 / stepSource.length : 0;
+        const barWidth = slotWidth * 0.6;
+        const barPadding = slotWidth * 0.2;
+        return { x: index * slotWidth + barPadding, y: 100 - ((entry.steps || 0) / maxSteps) * 100, label: getLabel(entry), width: barWidth };
+    });
+    const stepAxisLabels = [`${Math.round(maxSteps / 1000)}k`, `${Math.round(maxSteps / 2000)}k`];
 
-        const maxSteps = Math.max(...stepSource.map(e => e.steps || 0), 5000);
-        const stepChartData = stepSource.map((entry, index) => {
-            const numItems = recentData.length;
-            const slotWidth = stepSource.length > 0 ? 100 / stepSource.length : 0;
-            const barWidth = slotWidth * 0.6;
-            const barPadding = slotWidth * 0.2; // Padding on each side of the bar within its slot
-            return {
-                x: index * slotWidth + barPadding, // X position of the bar
-                y: 100 - ((entry.steps || 0) / maxSteps) * 100,
-                label: getLabel(entry),
-                width: barWidth
-            }
-        });
-        const stepAxisLabels = [`${Math.round(maxSteps / 1000)}k`, `${Math.round(maxSteps / 2000)}k`];
-
-        const maxSleep = 10 * 60;
-        // Trim trailing entries with zero sleep so empty bars at the end are removed
-        const sleepSource = [...recentData];
-        const totalMinutesOf = (entry) => ((entry.sleep?.hours || 0) * 60) + (entry.sleep?.minutes || 0);
+    // Sleep chart data (trim trailing zeros)
+    const maxSleep = 10 * 60;
+    const sleepSource = [...recentData];
+    const totalMinutesOf = entry => (entry.sleep?.hours || 0) * 60 + (entry.sleep?.minutes || 0);
     while (sleepSource.length > 1 && totalMinutesOf(sleepSource[sleepSource.length - 1]) === 0 && sleepSource[sleepSource.length - 1].date !== selectedDate) sleepSource.pop();
+    const sleepChartData = sleepSource.map((entry, index) => {
+        const slotWidth = sleepSource.length > 0 ? 100 / sleepSource.length : 0;
+        const barWidth = slotWidth * 0.6;
+        const barPadding = slotWidth * 0.2;
+        const totalMinutes = totalMinutesOf(entry);
+        return { x: index * slotWidth + barPadding, y: 100 - (totalMinutes / maxSleep) * 100, label: getLabel(entry), width: barWidth };
+    });
+    const sleepAxisLabels = ['10hr', '5hr'];
 
-        const sleepChartData = sleepSource.map((entry, index) => {
-            const numItems = sleepSource.length;
-            const slotWidth = numItems > 0 ? 100 / numItems : 0;
-            const barWidth = slotWidth * 0.6;
-            const barPadding = slotWidth * 0.2;
-            const totalMinutes = totalMinutesOf(entry);
-            return {
-                x: index * slotWidth + barPadding,
-                y: 100 - (totalMinutes / maxSleep) * 100,
-                label: getLabel(entry),
-                width: barWidth
-            }
-        });
-        const sleepAxisLabels = ["10hr", "5hr"];
-        
-    // Use labels that match the displayed data for each chart
     const stepLabels = stepChartData.map(d => d.label);
     const sleepLabels = sleepChartData.map(d => d.label);
-    // Ensure today's date is visible on charts if we have an entry for it
     if (entries.find(e => e.date === todayISO)) {
         const todayLabel = getLabel({ date: todayISO });
         if (!stepLabels.includes(todayLabel)) stepLabels.push(todayLabel);
@@ -236,7 +207,7 @@
     }
 
     return { moodLinePoints, stepChartData, stepAxisLabels, sleepChartData, sleepAxisLabels, chartLabels: recentData.map(getLabel), stepLabels, sleepLabels };
-    })();
+})();
 </script>
 <!-- Main Dashboard Layout -->
 <main>
@@ -260,6 +231,10 @@
                     {#if day.entry?.workout.completed}<div class="workout-dot" title="Workout completed"></div>{/if}
                 </div>
             {/each}
+        </div>
+        <div class="journal-card">
+            <label class="journal-label">Thought / Journal</label>
+            <textarea class="journal-text" bind:value={entryBeingEdited.thought} placeholder="Write a short thought for this day..." rows="4"></textarea>
         </div>
     </section>
 
@@ -388,6 +363,9 @@
     .calendar-header button[title="Previous Month"] { left: 0.5rem; }
     .calendar-header button[title="Next Month"] { right: 0.5rem; }
     .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.25rem; }
+    .journal-card { margin-top: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem; }
+    .journal-label { color: var(--text-muted); font-weight: 600; font-size: 0.9rem; }
+    .journal-text { width: 100%; min-height: 88px; resize: vertical; background-color: #2a2a2a; border: 1px solid var(--border-color); border-radius: 8px; padding: 0.75rem; color: var(--text-color); }
     
     .editor-header { position: relative; display: flex; justify-content: center; align-items: center; gap: 0.75rem; }
     .editor-header h2 { margin: 0; }
